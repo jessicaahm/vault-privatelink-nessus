@@ -48,4 +48,6 @@ else
   echo "No remote branch named $branch on origin" >&2
 fi
 
+git fetch origin --prune
+
 echo "Pruned branch: $branch"
