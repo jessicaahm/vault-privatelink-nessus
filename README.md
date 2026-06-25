@@ -54,12 +54,71 @@ until [ "$(curl --location "https://api.cloud.hashicorp.com/network/2020-09-07/o
 done
 ```
 
-5. Create the consumer-side VPC endpoint in AWS, pointing at `$EXTERNAL_NAME`:
+5. Create a security group allowing inbound TCP 8200 from `$CONSUMER_IP_RANGES`, then create the consumer-side VPC endpoint in AWS, pointing at `$EXTERNAL_NAME`:
 ```sh
-aws ec2 create-vpc-endpoint \
+VPCE_SG_ID=$(aws ec2 create-security-group \
+  --group-name vault-privatelink-endpoint \
+  --description "Allow Vault (8200) from consumer IP ranges" \
+  --vpc-id "$CONSUMER_VPC_ID" \
+  --query 'GroupId' --output text)
+
+aws ec2 authorize-security-group-ingress \
+  --group-id "$VPCE_SG_ID" \
+  --protocol tcp --port 8200 \
+  --cidr "$CONSUMER_IP_RANGES"
+
+VPC_ENDPOINT_ID=$(aws ec2 create-vpc-endpoint \
   --vpc-endpoint-type Interface \
   --vpc-id "$CONSUMER_VPC_ID" \
   --subnet-ids $CONSUMER_SUBNET_IDS \
-  --service-name "$EXTERNAL_NAME"
+  --security-group-ids "$VPCE_SG_ID" \
+  --service-name "$EXTERNAL_NAME" \
+  --query 'VpcEndpoint.VpcEndpointId' --output text)
 ```
 
+6. Add Route53 Private Hosted Zone
+
+Private DNS names are disabled by default on the endpoint (AWS can't verify ownership of HCP's domain), so resolve the Vault hostname manually. Set `VAULT_FULL_DOMAIN_NAME` in `.env` to the Vault cluster's private endpoint hostname (from the HCP Vault cluster's "Private connectivity" details):
+```sh
+HOSTED_ZONE_ID=$(aws route53 create-hosted-zone \
+  --name "$VAULT_PRIVATE_DNS_ZONE" \
+  --vpc VPCRegion="$AWS_REGION",VPCId="$CONSUMER_VPC_ID" \
+  --caller-reference "$(date +%s)" \
+  --query 'HostedZone.Id' --output text)
+```
+
+Create a CNAME pointing at the VPC endpoint's regional DNS name:
+```sh
+VPC_ENDPOINT_DNS_NAME=$(aws ec2 describe-vpc-endpoints \
+  --vpc-endpoint-ids "$VPC_ENDPOINT_ID" \
+  --query 'VpcEndpoints[0].DnsEntries[0].DnsName' --output text)
+
+aws route53 change-resource-record-sets \
+  --hosted-zone-id "$HOSTED_ZONE_ID" \
+  --change-batch "{
+    \"Changes\": [{
+      \"Action\": \"UPSERT\",
+      \"ResourceRecordSet\": {
+        \"Name\": \"$VAULT_FULL_DOMAIN_NAME\",
+        \"Type\": \"CNAME\",
+        \"TTL\": 300,
+        \"ResourceRecords\": [{\"Value\": \"$VPC_ENDPOINT_DNS_NAME\"}]
+      }
+    }]
+  }"
+```
+
+## Troubleshooting
+
+DNS not resolving? Confirm the CNAME above and check it resolves from inside the VPC (not your local machine, since the hosted zone is private):
+```sh
+dig +short "$VAULT_FULL_DOMAIN_NAME"
+```
+
+Connection refused/timed out? Confirm the security group allows TCP 8200 from where you're connecting, then test connectivity to the endpoint:
+```sh
+VPE_ENDPOINT_IP=$(dig +short "$VAULT_FULL_DOMAIN_NAME" | tail -1)
+nc -vz -w 5 "$VPE_ENDPOINT_IP" 8200
+```
+
+Endpoint stuck in `pending`? Verify the PrivateLink service state is `AVAILABLE` (step 4) before the endpoint is created — endpoints created against a service that isn't ready will not become available on their own.
