@@ -46,3 +46,20 @@ EXTERNAL_NAME=$(curl --location "https://api.cloud.hashicorp.com/network/2020-09
 echo "$EXTERNAL_NAME"
 ```
 
+4. Poll until the service `state` is `AVAILABLE`:
+```sh
+until [ "$(curl --location "https://api.cloud.hashicorp.com/network/2020-09-07/organizations/$HCP_ORG_ID/projects/$HCP_PROJ_ID/networks/$HCP_NETWORK_ID/private-link-services/$PRIVATELINKID" \
+  --header "Authorization: Bearer $HCP_API_TOKEN" | jq -r '.private_link_service.state')" = "AVAILABLE" ]; do
+  sleep 5
+done
+```
+
+5. Create the consumer-side VPC endpoint in AWS, pointing at `$EXTERNAL_NAME`:
+```sh
+aws ec2 create-vpc-endpoint \
+  --vpc-endpoint-type Interface \
+  --vpc-id "$CONSUMER_VPC_ID" \
+  --subnet-ids $CONSUMER_SUBNET_IDS \
+  --service-name "$EXTERNAL_NAME"
+```
+

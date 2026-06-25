@@ -113,6 +113,7 @@ async def main():
             allowed_tools=["Read", "Edit", "Glob", "Grep", "Bash"],
             permission_mode="acceptEdits",
             model="claude-sonnet-4-6",
+            max_turns=30
         ),
     ):
         if isinstance(message, AssistantMessage):
