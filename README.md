@@ -6,7 +6,8 @@ Prerequisites:
 
 ## Create Private Link
 
-1. Load env vars:
+1. Make sure you have all the prerequisites, then load env vars:
+
 ```sh
 set -a && source .env && set +a
 ```
@@ -44,3 +45,4 @@ EXTERNAL_NAME=$(curl --location "https://api.cloud.hashicorp.com/network/2020-09
 
 echo "$EXTERNAL_NAME"
 ```
+
