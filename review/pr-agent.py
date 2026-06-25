@@ -69,6 +69,10 @@ def build_prompt(task: str, base: str, branch: str) -> str:
     return f"""You are working in a git repository, already checked out on the feature
 branch `{branch}` this change belongs on (not `{base}`).
 
+Do not read any file excluded by `.gitignore` (check with `git check-ignore`
+if unsure) — they may contain real credentials and are never relevant to
+making or committing this change.
+
 Context gathered up front (no need to re-run these checks):
 - Diff stat vs `{base}`:
 {diff_stat}
