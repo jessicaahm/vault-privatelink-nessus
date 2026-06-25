@@ -1,5 +1,7 @@
 import argparse
 import asyncio
+import json
+import re
 import subprocess
 
 from claude_agent_sdk import query, ClaudeAgentOptions, AssistantMessage, ResultMessage
@@ -71,7 +73,7 @@ branch `{branch}` this change belongs on (not `{base}`).
 
 Do not read any file excluded by `.gitignore` (check with `git check-ignore`
 if unsure) — they may contain real credentials and are never relevant to
-making or committing this change.
+making this change.
 
 Context gathered up front (no need to re-run these checks):
 - Diff stat vs `{base}`:
@@ -81,21 +83,49 @@ Context gathered up front (no need to re-run these checks):
 - Commits ahead of `{base}` (`git log origin/{base}..HEAD --oneline`):
 {log}
 
-Do the following end to end:
+Do the following:
 
 1. Make the following change: {task}
 2. Run any relevant tests/linters if they exist and fix failures you introduced.
-3. Stage and commit ALL changes in the working tree relevant to this branch's
-   work — both modified tracked files and untracked files/directories — except
-   anything excluded by `.gitignore`. Do not narrow the commit to a subset of
-   files based on your own judgment of "scope"; if a file is untracked and not
-   gitignored, it belongs in this PR. Use a concise commit message explaining
-   why, not just what.
-4. Push the current branch to origin.
-5. Open a pull request against `{base}` using the `gh` CLI (`gh pr create`), with a title
-   and body summarizing the change and a test plan.
 
-Report the PR URL at the end."""
+Do NOT run `git add`, `git commit`, `git push`, or `gh pr create` yourself —
+a wrapper script handles staging, committing, pushing, and opening the PR
+after you finish. Do not re-verify state with `git status`/`git diff`/`git log`
+unless a command you ran failed; trust the context above.
+
+When you are done editing, output ONLY the following JSON object as your
+final message, with no surrounding text or code fences:
+
+{{"commit_message": "<concise commit message explaining why, not just what>", "pr_title": "<short PR title>", "pr_body": "<PR body in markdown with a Summary and Test plan section>"}}"""
+
+
+def extract_plan(result_text: str) -> dict:
+    match = re.search(r"\{.*\}", result_text, re.DOTALL)
+    if not match:
+        raise SystemExit(f"Could not find JSON plan in agent output:\n{result_text}")
+    plan = json.loads(match.group(0))
+    for key in ("commit_message", "pr_title", "pr_body"):
+        if not plan.get(key):
+            raise SystemExit(f"Agent plan missing required field {key!r}: {plan}")
+    return plan
+
+
+def commit_push_and_open_pr(plan: dict, base: str, branch: str) -> str:
+    subprocess.run(["git", "add", "-A"], check=True)
+    subprocess.run(["git", "commit", "-m", plan["commit_message"]], check=True)
+    subprocess.run(["git", "push", "-u", "origin", branch], check=True)
+    pr = subprocess.run(
+        [
+            "gh", "pr", "create",
+            "--base", base,
+            "--title", plan["pr_title"],
+            "--body", plan["pr_body"],
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    return pr.stdout.strip()
 
 
 async def main():
@@ -110,14 +140,15 @@ async def main():
     prompt = build_prompt(task, args.base, branch)
 
     session_id = None
+    result_text = ""
     async for message in query(
         prompt=prompt,
         options=ClaudeAgentOptions(
             setting_sources=[],
-            allowed_tools=["Read", "Edit", "Glob", "Grep", "Bash"],
+            allowed_tools=["Read", "Edit", "Bash"],
             permission_mode="acceptEdits",
             model="claude-sonnet-4-6",
-            max_turns=30
+            max_turns=15
         ),
     ):
         if isinstance(message, AssistantMessage):
@@ -129,10 +160,12 @@ async def main():
                     if block.name == "Bash":
                         print(f"  $ {block.input.get('command')}")
         elif isinstance(message, ResultMessage):
-            summary = message.result or f"Done: {message.subtype}"
-            print(f"PR_AGENT_SUMMARY::{summary}")
+            result_text = message.result or ""
             session_id = message.session_id
 
+    plan = extract_plan(result_text)
+    pr_url = commit_push_and_open_pr(plan, args.base, branch)
+    print(f"PR_AGENT_SUMMARY::{pr_url}")
     print(f"Session ID: {session_id}")
     return session_id
 
