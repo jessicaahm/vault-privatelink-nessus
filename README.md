@@ -6,13 +6,13 @@ Prerequisites:
 
 ## Create Private Link
 
-Make sure you have all the prerequisites, then load env vars:
+1. Make sure you have all the prerequisites, then load env vars:
 
 ```sh
 set -a && source .env && set +a
 ```
 
-Create the PrivateLink service:
+2. Create the PrivateLink service:
 ```sh
 curl --location "https://api.cloud.hashicorp.com/network/2020-09-07/organizations/$HCP_ORG_ID/projects/$HCP_PROJ_ID/networks/$HCP_NETWORK_ID/private-link-services" \
  --request POST \
@@ -36,7 +36,7 @@ curl --location "https://api.cloud.hashicorp.com/network/2020-09-07/organization
  }" | jq
 ```
 
-Get the external service name (used when creating the AWS VPC endpoint):
+3. Get the external service name (used when creating the AWS VPC endpoint):
 ```sh
 export PRIVATELINKID="privatelink-service"
 

@@ -1,0 +1,4 @@
+private-link.md
+.venv/
+.env
+__pycache__/
