@@ -1,8 +1,8 @@
 # Architecture
-
 Prerequisites:
 1. AWS Account
 2. Nessus Tenable One license
+3. [Vault CLI](https://developer.hashicorp.com/vault/install)
 
 ## Create Private Link
 
@@ -108,6 +108,11 @@ aws route53 change-resource-record-sets \
   }"
 ```
 
+7. You may want to enrol a nessus scanner for an end to end test
+![Nessus scanner connected to HCP Vault over AWS PrivateLink](img/nessus_scanner.png)
+
+8. [Configure HashiCorp Vault](VAULT-CONFIG.md)
+
 ## Troubleshooting
 
 DNS not resolving? Confirm the CNAME above and check it resolves from inside the VPC (not your local machine, since the hosted zone is private):
@@ -122,3 +127,21 @@ nc -vz -w 5 "$VPE_ENDPOINT_IP" 8200
 ```
 
 Endpoint stuck in `pending`? Verify the PrivateLink service state is `AVAILABLE` (step 4) before the endpoint is created — endpoints created against a service that isn't ready will not become available on their own.
+
+Check Scanner Status
+```sh
+sudo /opt/nessus/sbin/nessuscli managed status
+```
+
+Check Scanner is running
+```sh
+sudo systemctl status nessusd
+
+#if not running restart
+sudo systemctl restart nessusd
+
+# Check scanner status
+sudo tail -f /opt/nessus/var/nessus/logs/nessusd.messages
+```
+
+\
