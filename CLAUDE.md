@@ -13,6 +13,7 @@ Prerequisites: an AWS account and a Nessus Tenable One license.
 - `README.md` — architecture/prerequisites overview.
 - `private-link.md` — step-by-step runbook for establishing the AWS PrivateLink connection between an HCP Vault HVN and a consumer AWS account (HCP API auth, `private-link-services` create/get calls via curl, VPC Endpoint creation). This file is gitignored and untracked because it contains real HCP client credentials and account IDs from past runs — never remove it from `.gitignore` or commit it as-is.
 - `script/01_setup_nessus.sh` — idempotent bash script to install and start the Nessus scanner daemon on Ubuntu/Debian.
+- `.env` / `.env.sample` — `.env` holds real local secrets and is gitignored; `.env.sample` is the committed template. Every variable defined in `.env` must have a corresponding entry (name only, placeholder value) in `.env.sample` — keep the two files' variable lists in sync whenever either changes.
 
 ## Working with `script/01_setup_nessus.sh`
 
