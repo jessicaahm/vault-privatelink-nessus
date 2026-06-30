@@ -111,6 +111,21 @@ aws route53 change-resource-record-sets \
 7. You may want to enrol a nessus scanner for an end to end test
 ![Nessus scanner connected to HCP Vault over AWS PrivateLink](img/nessus_scanner.png)
 
+When configuring the HashiCorp Vault managed credential in Tenable, fill in the
+fields as below. Tenable inserts the KV v2 `data/` segment automatically (right
+after the engine URL), so the engine URL is the mount only and the full path
+below the mount goes in **Secret Name**. This resolves to a read of
+`/v1/secret/data/amazonlinux/nessus` (with the `admin` namespace):
+
+| Field | Value |
+| --- | --- |
+| KV2 Engine URL | `/v1/secret` |
+| Secret Name | `amazonlinux/nessus` |
+| Username Key | `username` |
+| Password Key | `private_key` |
+| Passphrase Key | _(blank)_ |
+| Namespace | `admin` |
+
 8. [Configure HashiCorp Vault](VAULT-CONFIG.md)
 
 ## Troubleshooting
