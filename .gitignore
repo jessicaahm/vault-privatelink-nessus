@@ -3,3 +3,4 @@ private-link.md
 .env
 __pycache__/
 keys/
+.DS_Store
