@@ -25,18 +25,23 @@ vault write -namespace=admin pki/issue/example-dot-com \
 # Enable Auth Method for Certs
 vault auth enable -namespace=admin cert
 
-# Configure it with trusted cert 
-vault write --namespace=admin auth/cert/certs/web \
+# Load the policy that grants PKI issuance + KV access for the scanner token.
+vault policy write -namespace=admin nessus nessus-policy.hcl
+
+# Configure it with trusted cert. Attach the nessus policy (not just default)
+# so the cert-auth token can re-issue certs from pki/issue/example-dot-com;
+# otherwise Vault Agent's template gets 403 permission denied.
+vault write -namespace=admin auth/cert/certs/web \
     display_name=web \
-    policies=default \
-    certificate=@public.pem \
+    policies=nessus \
+    certificate=@ca-cert.pem \
+    allowed_common_names=scanner1.example.com \
     ttl=3600
 
 # login
 curl \
     --request POST \
     --header "X-Vault-Namespace: admin" \
-    --cacert vault-ca.pem \
     --cert public.pem \
     --key key.pem \
     --data '{"name": "web"}' \
