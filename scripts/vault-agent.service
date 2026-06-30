@@ -1,0 +1,36 @@
+# systemd unit for Vault Agent on the Nessus scanner host.
+# Install:
+#   sudo cp scripts/vault-agent.service /etc/systemd/system/vault-agent.service
+#   sudo cp scripts/agent-config.hcl /etc/vault.d/agent-config.hcl   # adjust paths inside
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now vault-agent
+# Monitor:
+#   systemctl status vault-agent
+#   journalctl -u vault-agent -f
+[Unit]
+Description=Vault Agent (cert auto-auth + PKI cert renewal for Nessus)
+Documentation=https://developer.hashicorp.com/vault/docs/agent-and-proxy/agent
+Wants=network-online.target
+After=network-online.target
+# Run the notifier unit whenever this service enters the failed state
+# (i.e. after Restart= attempts are exhausted).
+OnFailure=vault-agent-notify@%n.service
+
+[Service]
+# Working dir holds public.pem / private.pem / ca-cert.pem and the exec scripts.
+WorkingDirectory=/etc/vault.d
+ExecStart=/usr/bin/vault agent -config=/etc/vault.d/agent-config.hcl
+ExecReload=/bin/kill --signal HUP $MAINPID
+KillSignal=SIGINT
+
+# Resilience: always bring the agent back if it exits for any reason.
+Restart=on-failure
+RestartSec=5s
+
+# Optional hardening.
+ProtectSystem=full
+ProtectHome=read-only
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target
