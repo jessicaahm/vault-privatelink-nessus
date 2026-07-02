@@ -157,6 +157,9 @@ sudo systemctl restart nessusd
 
 # Check scanner status
 sudo tail -f /opt/nessus/var/nessus/logs/nessusd.messages
+
+# Check if cert has expired
+openssl x509 -in public.pem -checkend 0 && echo "still valid" || echo "EXPIRED"
 ```
 
 \

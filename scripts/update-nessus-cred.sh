@@ -11,7 +11,8 @@
 # Each also falls back to its matching environment variable.
 set -euo pipefail
 
-log() { echo "[update-nessus-cred] $*"; }
+
+ate-nessus-cred] $*"; }
 die() { echo "[update-nessus-cred] ERROR: $*" >&2; exit 1; }
 
 # --- Configuration ---------------------------------------------------------

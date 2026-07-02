@@ -66,6 +66,14 @@ Validate if certificates is updated
 ```sh
 curl -s -H "$AUTH" https://cloud.tenable.com/credentials/$UUID \
 | jq '.settings.hashicorp_authentication_type'  
+
+curl -s \
+  --header "X-ApiKeys: accessKey=${NESSUS_ACCESS_KEY}; secretKey=${NESSUS_SECRET_KEY}" \
+  https://cloud.tenable.com/credentials/e15e515e-e20e-4e52-94df-e6edb5ab317e \
+  | jq '.settings | {hashicorp_client_cert, hashicorp_private_key}'
 ```
 
-
+{
+  "hashicorp_client_cert": "public.pem_a204054b-b767-4f65-9e77-eafa4b0a771b",
+  "hashicorp_private_key": "key.pem_d51fd612-6fab-43f4-9c8e-4abc9bdf2b97"
+}
